@@ -111,11 +111,12 @@ def allocate_teams(clustered_df, number_of_teams, estimated_days_per_branch=1):
 
     return df
 
-   def balance_team_workload(df, estimated_days_per_branch=1, number_of_teams=4):
+
+def balance_team_workload(df, estimated_days_per_branch=1, number_of_teams=4):
     """Rebalance branches from heavy teams to light teams using proximity"""
     df = df.copy()
     
-    max_iterations = 50  # Safety limit
+    max_iterations = 50
     iteration = 0
     
     while iteration < max_iterations:
@@ -126,7 +127,7 @@ def allocate_teams(clustered_df, number_of_teams, estimated_days_per_branch=1):
         max_load = team_load.max()
         min_load = team_load.min()
         
-        # Stop if workload is reasonably balanced
+        # Stop if balanced
         if max_load - min_load <= estimated_days_per_branch:
             break
             
@@ -144,7 +145,7 @@ def allocate_teams(clustered_df, number_of_teams, estimated_days_per_branch=1):
             for light_team in light_teams:
                 light_branches = df[df["team_id"] == light_team].copy()
                 
-                # Find the best branch to move (closest to light team)
+                # Find closest branch to move
                 best_branch_idx = None
                 best_dist = float('inf')
                 
@@ -158,7 +159,7 @@ def allocate_teams(clustered_df, number_of_teams, estimated_days_per_branch=1):
                             best_dist = dist
                             best_branch_idx = h_idx
                 
-                # Move if reasonably close (max 150 km)
+                # Move branch if within reasonable distance
                 if best_branch_idx is not None and best_dist < 150:
                     df.loc[best_branch_idx, "team_id"] = light_team
                     moved = True
@@ -168,9 +169,10 @@ def allocate_teams(clustered_df, number_of_teams, estimated_days_per_branch=1):
                 break
         
         if not moved:
-            break  # Cannot improve further with current constraints
+            break  # No more beneficial moves
     
     return df
+
     
     return clustered_df.merge(pd.DataFrame(assignments), on="cluster_id", how="left")
 
