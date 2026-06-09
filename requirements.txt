@@ -1,8 +1,8 @@
-streamlit==1.40.0
-pandas==2.2.2
-numpy==1.26.4
-pydeck==0.9.1
-requests==2.32.3
-scikit-learn==1.5.1
-ortools==9.11.4210
-xlsxwriter==3.2.0
+streamlit
+pandas
+numpy
+pydeck
+requests
+scikit-learn
+ortools
+xlsxwriter
