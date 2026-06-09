@@ -1,3 +1,4 @@
+pip install -r requirements.txt
 import io
 import math
 import time
