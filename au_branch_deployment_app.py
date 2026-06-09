@@ -81,6 +81,8 @@ def cluster_branches(df, number_of_clusters):
 
 
 def allocate_teams(clustered_df, number_of_teams, estimated_days_per_branch=1):
+    """Initial cluster assignment + dynamic rebalancing for even workload"""
+    # Initial greedy assignment by clusters
     cluster_workload = (
         clustered_df.groupby("cluster_id")
         .size()
@@ -88,21 +90,81 @@ def allocate_teams(clustered_df, number_of_teams, estimated_days_per_branch=1):
     )
     cluster_workload["estimated_execution_days"] = cluster_workload["branch_count"] * estimated_days_per_branch
     cluster_workload = cluster_workload.sort_values("estimated_execution_days", ascending=False)
+
     team_loads = {team: 0 for team in range(1, number_of_teams + 1)}
     assignments = []
 
     for row in cluster_workload.itertuples():
         team_id = min(team_loads, key=team_loads.get)
-        assignments.append(
-            {
-                "cluster_id": row.cluster_id,
-                "team_id": team_id,
-                "cluster_branch_count": row.branch_count,
-                "cluster_estimated_execution_days": row.estimated_execution_days,
-            }
-        )
+        assignments.append({
+            "cluster_id": row.cluster_id,
+            "team_id": team_id,
+            "cluster_branch_count": row.branch_count,
+            "cluster_estimated_execution_days": row.estimated_execution_days,
+        })
         team_loads[team_id] += row.estimated_execution_days
 
+    df = clustered_df.merge(pd.DataFrame(assignments), on="cluster_id", how="left")
+
+    # === NEW: Dynamic Rebalancing ===
+    df = balance_team_workload(df, estimated_days_per_branch, number_of_teams)
+
+    return df
+
+    def balance_team_workload(df, estimated_days_per_branch=1, number_of_teams=4):
+    """Rebalance branches from heavy teams to light teams using proximity"""
+    df = df.copy()
+    
+    while True:
+        # Calculate current load per team
+        team_load = df.groupby("team_id").size() * estimated_days_per_branch
+        max_load = team_load.max()
+        min_load = team_load.min()
+        
+        # Stop if workload is balanced (difference ≤ 1 branch)
+        if max_load - min_load <= estimated_days_per_branch:
+            break
+            
+        heavy_teams = team_load[team_load == max_load].index.tolist()
+        light_teams = team_load[team_load == min_load].index.tolist()
+        
+        if not heavy_teams or not light_teams:
+            break
+            
+        # Try to move one branch from heavy to light team
+        moved = False
+        for heavy_team in heavy_teams:
+            heavy_branches = df[df["team_id"] == heavy_team]
+            
+            for light_team in light_teams:
+                light_branches = df[df["team_id"] == light_team]
+                
+                # Find closest branch from heavy team to light team's branches
+                best_branch = None
+                best_dist = float('inf')
+                
+                for _, h_row in heavy_branches.iterrows():
+                    for _, l_row in light_branches.iterrows():
+                        dist = haversine_km(
+                            h_row["latitude"], h_row["longitude"],
+                            l_row["latitude"], l_row["longitude"]
+                        )
+                        if dist < best_dist:
+                            best_dist = dist
+                            best_branch = h_row.name
+                
+                if best_branch is not None and best_dist < 150:  # Max 150km move threshold
+                    df.loc[best_branch, "team_id"] = light_team
+                    moved = True
+                    break
+            if moved:
+                break
+        if not moved:
+            break  # Cannot improve further
+    
+    return df
+
+    
     return clustered_df.merge(pd.DataFrame(assignments), on="cluster_id", how="left")
 
 
