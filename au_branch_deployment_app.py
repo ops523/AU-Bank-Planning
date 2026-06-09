@@ -111,17 +111,22 @@ def allocate_teams(clustered_df, number_of_teams, estimated_days_per_branch=1):
 
     return df
 
-    def balance_team_workload(df, estimated_days_per_branch=1, number_of_teams=4):
+   def balance_team_workload(df, estimated_days_per_branch=1, number_of_teams=4):
     """Rebalance branches from heavy teams to light teams using proximity"""
     df = df.copy()
     
-    while True:
+    max_iterations = 50  # Safety limit
+    iteration = 0
+    
+    while iteration < max_iterations:
+        iteration += 1
+        
         # Calculate current load per team
         team_load = df.groupby("team_id").size() * estimated_days_per_branch
         max_load = team_load.max()
         min_load = team_load.min()
         
-        # Stop if workload is balanced (difference ≤ 1 branch)
+        # Stop if workload is reasonably balanced
         if max_load - min_load <= estimated_days_per_branch:
             break
             
@@ -131,19 +136,19 @@ def allocate_teams(clustered_df, number_of_teams, estimated_days_per_branch=1):
         if not heavy_teams or not light_teams:
             break
             
-        # Try to move one branch from heavy to light team
         moved = False
+        
         for heavy_team in heavy_teams:
-            heavy_branches = df[df["team_id"] == heavy_team]
+            heavy_branches = df[df["team_id"] == heavy_team].copy()
             
             for light_team in light_teams:
-                light_branches = df[df["team_id"] == light_team]
+                light_branches = df[df["team_id"] == light_team].copy()
                 
-                # Find closest branch from heavy team to light team's branches
-                best_branch = None
+                # Find the best branch to move (closest to light team)
+                best_branch_idx = None
                 best_dist = float('inf')
                 
-                for _, h_row in heavy_branches.iterrows():
+                for h_idx, h_row in heavy_branches.iterrows():
                     for _, l_row in light_branches.iterrows():
                         dist = haversine_km(
                             h_row["latitude"], h_row["longitude"],
@@ -151,19 +156,21 @@ def allocate_teams(clustered_df, number_of_teams, estimated_days_per_branch=1):
                         )
                         if dist < best_dist:
                             best_dist = dist
-                            best_branch = h_row.name
+                            best_branch_idx = h_idx
                 
-                if best_branch is not None and best_dist < 150:  # Max 150km move threshold
-                    df.loc[best_branch, "team_id"] = light_team
+                # Move if reasonably close (max 150 km)
+                if best_branch_idx is not None and best_dist < 150:
+                    df.loc[best_branch_idx, "team_id"] = light_team
                     moved = True
                     break
+            
             if moved:
                 break
+        
         if not moved:
-            break  # Cannot improve further
+            break  # Cannot improve further with current constraints
     
     return df
-
     
     return clustered_df.merge(pd.DataFrame(assignments), on="cluster_id", how="left")
 
