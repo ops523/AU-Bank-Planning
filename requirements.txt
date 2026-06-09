@@ -6,3 +6,5 @@ requests
 scikit-learn
 ortools
 xlsxwriter
+openpyxl
+python-dotenv
