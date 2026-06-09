@@ -1,3 +1,4 @@
+pip install --no-build-isolation ortools
 pip install -r requirements.txt
 import io
 import math
