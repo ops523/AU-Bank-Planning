@@ -1,5 +1,3 @@
-pip install --no-build-isolation ortools
-pip install -r requirements.txt
 import io
 import math
 import time
@@ -12,7 +10,9 @@ import requests
 import streamlit as st
 from ortools.constraint_solver import pywrapcp, routing_enums_pb2
 from sklearn.cluster import KMeans
-
+pip install wheel
+pip install ortools -f https://github.com/google/or-tools/releases
+pip install -r requirements.txt
 
 REQUIRED_COLUMNS = {"branch_name", "latitude", "longitude"}
 
